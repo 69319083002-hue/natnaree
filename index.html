@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>coooook Jiew POS - ระบบคิดเงินหน้าร้าน</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Kanit & Prompt -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cookie: {
+                            50: '#FFFDF9',
+                            100: '#FFF3E8',
+                            200: '#FAD4D8', // Cute pink accent from logo
+                            300: '#F4A5AE',
+                            400: '#E27B88',
+                            500: '#C85363',
+                            600: '#A33C4B',
+                            700: '#5D3327', // Rich cookie brown
+                            800: '#422219',
+                            900: '#2A130D',
+                        },
+                        pinklogo: '#F7C5CC',
+                        butter: '#FFF3B0',
+                    },
+                    fontFamily: {
+                        sans: ['Kanit', 'Prompt', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #FFF8F3;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #FFEFE5;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #F4A5AE;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #C85363;
+        }
+        .recipe-pattern {
+            background-image: radial-gradient(#F4A5AE 0.8px, transparent 0.8px);
+            background-size: 14px 14px;
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printable-receipt, #printable-receipt * {
+                visibility: visible;
+            }
+            #printable-receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col text-cookie-900 select-none">
+
+    <!-- TOP HEADER -->
+    <header class="bg-cookie-700 text-white px-4 py-2 shadow-md flex justify-between items-center z-10 border-b-2 border-pinklogo">
+        <div class="flex items-center gap-3">
+            <div class="w-11 h-11 rounded-full bg-white border-2 border-pinklogo flex items-center justify-center p-0.5 shadow-md overflow-hidden shrink-0">
+                <img src="c:\Users\COM _03\Downloads\logo.png" alt="coooook Jiew Logo" class="w-full h-full object-contain">
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-bold text-xl tracking-wide text-butter">coooook Jiew</h1>
+                    <span class="bg-cookie-500 text-white text-[10px] px-2 py-0.5 rounded-full font-normal shadow-xs">POS v2.2</span>
+                </div>
+                <p class="text-xs text-cookie-200">Homemade Cookies & Bakery | ระบบจัดการร้าน</p>
+            </div>
+        </div>
+
+        <!-- Quick Stats & Actions -->
+        <div class="flex items-center gap-2 md:gap-3 text-sm">
+            <div class="hidden md:flex items-center gap-2 bg-cookie-800/80 px-3 py-1.5 rounded-xl border border-cookie-600">
+                <i class="fa-solid fa-store text-butter"></i>
+                <span>ยอดขายวันนี้: <strong id="header-today-sales" class="text-butter">0.00 ฿</strong></span>
+            </div>
+
+            <!-- Product Management Button -->
+            <button onclick="openProductManagerModal()" class="bg-cookie-500 hover:bg-cookie-600 text-white px-3 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 text-xs md:text-sm font-medium border border-pinklogo/50">
+                <i class="fa-solid fa-pen-to-square text-butter"></i>
+                <span>จัดการสินค้า & ราคา</span>
+            </button>
+
+            <button onclick="openShiftSummary()" class="bg-cookie-800 hover:bg-cookie-900 text-white px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 text-xs md:text-sm font-medium border border-cookie-600">
+                <i class="fa-solid fa-chart-pie text-butter"></i>
+                <span class="hidden sm:inline">สรุปยอด</span>
+            </button>
+
+            <button id="sound-toggle-btn" onclick="toggleSound()" class="bg-cookie-800 hover:bg-cookie-900 text-white w-9 h-9 rounded-xl transition-colors flex items-center justify-center border border-cookie-600" title="เปิด/ปิด เสียง">
+                <i class="fa-solid fa-volume-high text-butter"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- LEFT: PRODUCT SELECTION SECTION -->
+        <main class="flex-1 flex flex-col min-w-0 bg-cookie-50">
+            
+            <!-- Filters & Search Bar -->
+            <div class="p-3 md:p-4 bg-white/90 backdrop-blur border-b border-cookie-100 flex flex-col sm:flex-row gap-3 justify-between items-center shadow-xs">
+                
+                <!-- Category Buttons -->
+                <div class="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none" id="category-container">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Search Input -->
+                <div class="relative w-full sm:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-cookie-400 text-sm"></i>
+                    <input type="text" id="search-input" placeholder="ค้นหาเมนูคุ้กกี้..." 
+                        oninput="handleSearch()"
+                        class="w-full pl-9 pr-8 py-1.5 text-sm bg-cookie-50 border border-pinklogo/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-cookie-400 focus:bg-white transition">
+                    <button id="clear-search" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-cookie-400 hover:text-cookie-700 text-xs">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Product Grid -->
+            <div class="flex-1 overflow-y-auto p-3 md:p-4 recipe-pattern">
+                <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                    <!-- Cards render via JS -->
+                </div>
+                
+                <!-- Empty Search State -->
+                <div id="empty-state" class="hidden flex-col items-center justify-center h-64 text-cookie-400">
+                    <i class="fa-solid fa-cookie-bite text-5xl mb-2 opacity-40"></i>
+                    <p class="text-lg font-medium">ไม่พบเมนูคุ้กกี้ที่ต้องการ</p>
+                    <button onclick="clearSearch()" class="mt-2 text-xs text-cookie-600 underline hover:text-cookie-800">ดูเมนูทั้งหมด</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT: SHOPPING CART & CHECKOUT PANEL -->
+        <aside class="w-80 md:w-96 lg:w-[420px] bg-white border-l border-cookie-200 flex flex-col h-full shadow-lg z-10">
+            
+            <!-- Member Loyalty Section -->
+            <div class="p-3 bg-cookie-100/70 border-b border-cookie-200">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-bold text-cookie-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-heart text-cookie-500"></i>
+                        <span>สมาชิก Jiew Club</span>
+                    </label>
+                    <span id="member-status-badge" class="text-[10px] bg-white text-cookie-700 border border-cookie-200 px-2 py-0.5 rounded-full font-medium">ค้นหาเบอร์โทร</span>
+                </div>
+                <div class="flex gap-2">
+                    <div class="relative flex-1">
+                        <input type="tel" id="member-phone" placeholder="ระบุเบอร์โทรศัพท์..." maxlength="10"
+                            class="w-full text-sm px-3 py-1.5 rounded-xl border border-pinklogo focus:outline-none focus:ring-2 focus:ring-cookie-400 bg-white">
+                    </div>
+                    <button onclick="searchMember()" class="bg-cookie-700 hover:bg-cookie-800 text-white px-3 py-1.5 rounded-xl text-xs font-medium transition shadow-xs flex items-center gap-1">
+                        <i class="fa-solid fa-search"></i>
+                        <span>ค้นหา</span>
+                    </button>
+                </div>
+                
+                <!-- Active Member Banner -->
+                <div id="active-member-info" class="hidden mt-2 p-2 bg-white rounded-xl border border-pinklogo shadow-xs flex justify-between items-center text-xs">
+                    <div>
+                        <p class="font-bold text-cookie-800" id="member-name">คุณสมชาย (ลูกค้า VIP)</p>
+                        <p class="text-cookie-600 text-[11px]">แต้มสะสม: <span id="member-points" class="font-bold text-cookie-700">150</span> แต้ม</p>
+                    </div>
+                    <button onclick="clearMember()" class="text-red-400 hover:text-red-600 p-1" title="ยกเลิกการใช้สมาชิก">
+                        <i class="fa-solid fa-user-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cart Header -->
+            <div class="px-4 py-2 bg-cookie-50 border-b border-cookie-200 flex justify-between items-center text-xs font-bold text-cookie-700">
+                <span class="flex items-center gap-1">
+                    <i class="fa-solid fa-basket-shopping text-cookie-500"></i>
+                    รายการสั่งซื้อ (<span id="cart-item-count">0</span>)
+                </span>
+                <button onclick="clearCart()" class="text-red-500 hover:text-red-700 transition flex items-center gap-1 font-normal">
+                    <i class="fa-solid fa-trash-can"></i> ล้างตะกร้า
+                </button>
+            </div>
+
+            <!-- Cart Items Scrollable List -->
+            <div id="cart-items-list" class="flex-1 overflow-y-auto p-3 divide-y divide-cookie-100">
+                <!-- Cart items populate via JS -->
+            </div>
+
+            <!-- Empty Cart Display -->
+            <div id="cart-empty-view" class="flex-1 flex flex-col items-center justify-center p-6 text-cookie-300">
+                <i class="fa-solid fa-cookie text-6xl mb-3 opacity-30 text-cookie-400"></i>
+                <p class="text-sm font-medium text-cookie-500">ยังไม่มีรายการในตะกร้า</p>
+                <p class="text-xs text-cookie-400 text-center mt-1">กดเลือกสินค้าคุ้กกี้จากเมนูด้านซ้ายได้เลยค่ะ</p>
+            </div>
+
+            <!-- Calculation Breakdown & Payment Options -->
+            <div class="p-3 md:p-4 bg-cookie-50 border-t border-cookie-200 space-y-2.5">
+                
+                <!-- Discount Code Row -->
+                <div class="flex gap-2">
+                    <input type="text" id="coupon-code" placeholder="โค้ดส่วนลด (เช่น JIEW10)"
+                        class="uppercase flex-1 px-3 py-1 text-xs border border-pinklogo rounded-xl focus:outline-none focus:ring-1 focus:ring-cookie-500 bg-white">
+                    <button onclick="applyCoupon()" class="bg-cookie-200 hover:bg-cookie-300 text-cookie-800 text-xs px-3 py-1 rounded-xl font-semibold transition">
+                        ใช้โค้ด
+                    </button>
+                </div>
+
+                <!-- Subtotals -->
+                <div class="space-y-1 text-xs text-cookie-700 border-b border-cookie-200 pb-2">
+                    <div class="flex justify-between">
+                        <span>ยอดรวมสินค้า</span>
+                        <span id="summary-subtotal">0.00 ฿</span>
+                    </div>
+                    <div id="discount-row" class="flex justify-between text-emerald-600 hidden">
+                        <span>ส่วนลดพิเศษ</span>
+                        <span id="summary-discount">-0.00 ฿</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-0.5">
+                        <label class="cursor-pointer flex items-center gap-1 text-[11px] text-cookie-500">
+                            <input type="checkbox" id="vat-toggle" onchange="renderCartSummary()" class="rounded text-cookie-600 focus:ring-cookie-500">
+                            <span>คิดภาษี VAT 7%</span>
+                        </label>
+                        <span id="summary-vat" class="text-cookie-500">0.00 ฿</span>
+                    </div>
+                </div>
+
+                <!-- Grand Total Display -->
+                <div class="flex justify-between items-baseline pt-0.5">
+                    <span class="font-bold text-cookie-800 text-sm">ยอดชำระสุทธิ</span>
+                    <span id="summary-grand-total" class="font-bold text-cookie-600 text-2xl">0.00 ฿</span>
+                </div>
+
+                <!-- Payment Method Selector -->
+                <div>
+                    <label class="text-xs font-bold text-cookie-700 block mb-1">วิธีชำระเงิน:</label>
+                    <div class="grid grid-cols-3 gap-1.5" id="payment-methods">
+                        <button type="button" onclick="selectPaymentMethod('cash')" id="btn-pay-cash" 
+                            class="payment-btn active p-2 border border-cookie-200 rounded-xl text-center bg-white hover:bg-cookie-100 transition focus:outline-none">
+                            <i class="fa-solid fa-money-bill-wave text-emerald-600 block text-base mb-0.5"></i>
+                            <span class="text-xs font-medium block">เงินสด</span>
+                        </button>
+                        <button type="button" onclick="selectPaymentMethod('qr')" id="btn-pay-qr" 
+                            class="payment-btn p-2 border border-cookie-200 rounded-xl text-center bg-white hover:bg-cookie-100 transition focus:outline-none">
+                            <i class="fa-solid fa-qrcode text-blue-600 block text-base mb-0.5"></i>
+                            <span class="text-xs font-medium block">สแกน QR</span>
+                        </button>
+                        <button type="button" onclick="selectPaymentMethod('card')" id="btn-pay-card" 
+                            class="payment-btn p-2 border border-cookie-200 rounded-xl text-center bg-white hover:bg-cookie-100 transition focus:outline-none">
+                            <i class="fa-solid fa-credit-card text-purple-600 block text-base mb-0.5"></i>
+                            <span class="text-xs font-medium block">บัตรเครดิต</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Fast Cash Input -->
+                <div id="cash-calculator-section" class="space-y-1.5 pt-0.5">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-cookie-700">รับเงินมา:</span>
+                        <input type="number" id="cash-received-input" placeholder="0.00" oninput="calculateChange()"
+                            class="flex-1 text-right font-bold text-cookie-900 border border-pinklogo rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-cookie-500 bg-white">
+                    </div>
+                    <!-- Quick Cash Buttons -->
+                    <div class="grid grid-cols-4 gap-1">
+                        <button onclick="setExactCash()" class="bg-cookie-200 hover:bg-cookie-300 text-cookie-800 text-[11px] py-1 rounded-lg font-medium">พอดี</button>
+                        <button onclick="addCash(50)" class="bg-cookie-200 hover:bg-cookie-300 text-cookie-800 text-[11px] py-1 rounded-lg font-medium">+50</button>
+                        <button onclick="addCash(100)" class="bg-cookie-200 hover:bg-cookie-300 text-cookie-800 text-[11px] py-1 rounded-lg font-medium">+100</button>
+                        <button onclick="addCash(500)" class="bg-cookie-200 hover:bg-cookie-300 text-cookie-800 text-[11px] py-1 rounded-lg font-medium">+500</button>
+                    </div>
+                    <div class="flex justify-between text-xs font-medium text-cookie-700 pt-0.5">
+                        <span>เงินทอน:</span>
+                        <span id="cash-change-display" class="font-bold text-emerald-600">0.00 ฿</span>
+                    </div>
+                </div>
+
+                <!-- Checkout Button -->
+                <button onclick="processCheckout()" id="checkout-btn" disabled 
+                    class="w-full bg-cookie-500 hover:bg-cookie-600 disabled:bg-cookie-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-2xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 text-base">
+                    <i class="fa-solid fa-cash-register"></i>
+                    <span>คิดเงิน (Checkout)</span>
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- MODAL 1: PRODUCT MANAGEMENT & EDIT MODAL -->
+    <div id="product-manager-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 md:p-5">
+        <div class="bg-white rounded-3xl max-w-4xl w-full p-4 md:p-6 shadow-2xl relative flex flex-col max-h-[90vh]">
+            
+            <button onclick="closeProductManagerModal()" class="absolute right-4 top-4 text-cookie-400 hover:text-cookie-700 text-xl p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center gap-3 border-b border-cookie-200 pb-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-cookie-100 flex items-center justify-center text-cookie-600 text-xl">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-cookie-900">จัดการสินค้า & แก้ไขราคา</h3>
+                    <p class="text-xs text-cookie-500">เพิ่ม แก้ไขราคา ปรับสต็อก หรือแก้ไขรายละเอียดเมนูสินค้าในร้าน</p>
+                </div>
+            </div>
+
+            <!-- Content Area: Split View (List + Form) -->
+            <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 overflow-hidden">
+                
+                <!-- Left: Product List (8 cols) -->
+                <div class="md:col-span-7 flex flex-col min-h-0 border-r border-cookie-100 pr-0 md:pr-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-bold text-cookie-700">รายการสินค้าทั้งหมด (<span id="pm-total-count">0</span>)</span>
+                        <button onclick="resetProductForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> เพิ่มเมนูใหม่
+                        </button>
+                    </div>
+
+                    <!-- Scrollable Product Edit List -->
+                    <div class="flex-1 overflow-y-auto space-y-2 pr-1" id="pm-product-list">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Right: Add / Edit Product Form (5 cols) -->
+                <div class="md:col-span-5 bg-cookie-50 p-3.5 rounded-2xl border border-pinklogo/60 flex flex-col justify-between overflow-y-auto">
+                    <div>
+                        <h4 class="font-bold text-sm text-cookie-800 border-b border-cookie-200 pb-1.5 mb-3 flex items-center gap-1.5" id="pm-form-title">
+                            <i class="fa-solid fa-pen"></i> แก้ไขสินค้า
+                        </h4>
+
+                        <form id="product-edit-form" onsubmit="saveProductForm(event)" class="space-y-2.5 text-xs">
+                            <input type="hidden" id="pm-id">
+
+                            <div>
+                                <label class="block font-semibold text-cookie-700 mb-1">ชื่อสินค้า / เมนู:</label>
+                                <input type="text" id="pm-name" required placeholder="เช่น Dark Choco Cookie"
+                                    class="w-full px-3 py-1.5 border border-pinklogo rounded-xl focus:outline-none focus:ring-2 focus:ring-cookie-500 bg-white">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block font-semibold text-cookie-700 mb-1">ราคา (บาท):</label>
+                                    <input type="number" id="pm-price" min="0" step="0.5" required placeholder="15"
+                                        class="w-full px-3 py-1.5 border border-pinklogo rounded-xl focus:outline-none focus:ring-2 focus:ring-cookie-500 bg-white font-bold text-cookie-800">
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-cookie-700 mb-1">จำนวนสต็อก:</label>
+                                    <input type="number" id="pm-stock" min="0" required placeholder="50"
+                                        class="w-full px-3 py-1.5 border border-pinklogo rounded-xl focus:outline-none focus:ring-2 focus:ring-cookie-500 bg-white">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block font-semibold text-cookie-700 mb-1">หมวดหมู่:</label>
+                                    <select id="pm-category" class="w-full px-2.5 py-1.5 border border-pinklogo rounded-xl focus:outline-none focus:ring-2 focus:ring-cookie-500 bg-white">
+                                        <option value="cookie">คุ้กกี้จิ๋ว (Single)</option>
+                                        <option value="box">ชุดของขวัญ (Gift Set)</option>
+                                        <option value="drink">เครื่องดื่ม (Drinks)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-cookie-700 mb-1">ป้ายกำกับ (Badge):</label>
+                                    <input type="text" id="pm-badge" placeholder="เช่น BEST SELLER, HOT"
+                                        class="w-full px-3 py-1.5 border border-pinklogo rounded-xl focus:outline-none focus:ring-2 focus:ring-cookie-500 bg-white uppercase">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block font-semibold text-cookie-700 mb-1">URL รูปภาพสินค้า:</label>
+                                <input type="url" id="pm-image" placeholder="https://images.unsplash.com/..."
+                                    class="w-full px-3 py-1.5 border border-pinklogo rounded-xl focus:outline-none focus:ring-2 focus:ring-cookie-500 bg-white text-[11px]">
+                            </div>
+
+                            <!-- Preview Thumbnail -->
+                            <div class="pt-1 flex items-center gap-2">
+                                <span class="text-cookie-600 font-medium">ตัวอย่างรูป:</span>
+                                <div class="w-10 h-10 rounded-lg bg-cookie-100 border border-cookie-200 overflow-hidden shrink-0">
+                                    <img id="pm-image-preview" src="https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=100&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+                                </div>
+                            </div>
+
+                            <div class="pt-3 flex gap-2">
+                                <button type="submit" class="flex-1 bg-cookie-600 hover:bg-cookie-700 text-white font-bold py-2 rounded-xl transition shadow-sm text-xs flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    <span>บันทึกสินค้า</span>
+                                </button>
+                                <button type="button" onclick="resetProductForm()" class="bg-cookie-200 hover:bg-cookie-300 text-cookie-800 font-semibold px-3 py-2 rounded-xl transition text-xs">
+                                    ยกเลิก
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL 2: RECEIPT MODAL -->
+    <div id="receipt-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl relative flex flex-col max-h-[90vh]">
+            
+            <button onclick="closeReceiptModal()" class="absolute right-3 top-3 text-cookie-400 hover:text-cookie-700 text-lg p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="overflow-y-auto flex-1 pr-1" id="printable-receipt">
+                <!-- Receipt Header with Image Logo -->
+                <div class="text-center pb-3 border-b border-dashed border-cookie-300">
+                    <div class="w-16 h-16 rounded-full mx-auto mb-1 overflow-hidden border-2 border-pinklogo p-0.5 shadow-sm">
+                        <img src="ออกแบบโลโก้.png" alt="coooook Jiew Logo" class="w-full h-full object-contain">
+                    </div>
+                    <h2 class="font-bold text-lg text-cookie-900">coooook Jiew</h2>
+                    <p class="text-xs text-cookie-600">Homemade Cookies & Bakery</p>
+                    <p class="text-[10px] text-cookie-400 mt-0.5">ใบเสร็จรับเงินอย่างย่อ / Tax Invoice (ABB)</p>
+                </div>
+
+                <!-- Meta Details -->
+                <div class="py-2 border-b border-dashed border-cookie-300 text-[11px] text-cookie-600 space-y-0.5">
+                    <div class="flex justify-between">
+                        <span>เลขที่ใบสั่งซื้อ:</span>
+                        <span id="receipt-order-id" class="font-bold text-cookie-800">#CJ-1001</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>วันที่-เวลา:</span>
+                        <span id="receipt-datetime">27/10/2026 14:30</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>พนักงานขาย:</span>
+                        <span>POS Admin #01</span>
+                    </div>
+                    <div id="receipt-member-row" class="flex justify-between text-cookie-700 font-medium hidden">
+                        <span>สมาชิก:</span>
+                        <span id="receipt-member-phone">081-234-5678</span>
+                    </div>
+                </div>
+
+                <!-- Receipt Items -->
+                <div class="py-3 border-b border-dashed border-cookie-300 text-xs">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-cookie-500 border-b border-cookie-100 text-[11px]">
+                                <th class="pb-1 font-normal">รายการ</th>
+                                <th class="pb-1 text-center font-normal">จำนวน</th>
+                                <th class="pb-1 text-right font-normal">รวม</th>
+                            </tr>
+                        </thead>
+                        <tbody id="receipt-items-tbody" class="divide-y divide-cookie-50">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Receipt Totals -->
+                <div class="py-2 border-b border-dashed border-cookie-300 text-xs space-y-1">
+                    <div class="flex justify-between text-cookie-600">
+                        <span>รวมเป็นเงิน</span>
+                        <span id="receipt-subtotal">0.00 ฿</span>
+                    </div>
+                    <div id="receipt-discount-row" class="flex justify-between text-emerald-600 hidden">
+                        <span>ส่วนลด</span>
+                        <span id="receipt-discount">-0.00 ฿</span>
+                    </div>
+                    <div id="receipt-vat-row" class="flex justify-between text-cookie-500 hidden">
+                        <span>ภาษีมูลค่าเพิ่ม (7%)</span>
+                        <span id="receipt-vat">0.00 ฿</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-sm text-cookie-900 pt-1">
+                        <span>ยอดชำระทั้งสิ้น</span>
+                        <span id="receipt-grand-total">0.00 ฿</span>
+                    </div>
+                </div>
+
+                <!-- Payment Info -->
+                <div class="py-2 border-b border-dashed border-cookie-300 text-[11px] text-cookie-600 space-y-0.5">
+                    <div class="flex justify-between">
+                        <span>ชำระด้วย:</span>
+                        <span id="receipt-pay-method" class="font-medium text-cookie-800">เงินสด</span>
+                    </div>
+                    <div id="receipt-cash-details" class="space-y-0.5">
+                        <div class="flex justify-between">
+                            <span>รับเงินมา:</span>
+                            <span id="receipt-cash-received">0.00 ฿</span>
+                        </div>
+                        <div class="flex justify-between font-medium text-cookie-800">
+                            <span>เงินทอน:</span>
+                            <span id="receipt-cash-change">0.00 ฿</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loyalty Points Earned -->
+                <div id="receipt-points-box" class="my-3 p-2 bg-cookie-50 rounded-xl border border-pinklogo text-center text-xs text-cookie-800">
+                    <i class="fa-solid fa-heart text-cookie-500 mr-1"></i>
+                    <span>แต้มสะสมที่คุณได้รับ: <strong id="receipt-earned-points" class="text-cookie-700">0</strong> แต้ม</span>
+                </div>
+
+                <!-- Footer Note -->
+                <div class="text-center pt-2 text-[10px] text-cookie-400">
+                    <p>ขอบคุณที่อุดหนุนคุ้กกี้จิ๋วของเราค่ะ ❤️</p>
+                    <p>IG: @coooook_jiew | FB: coooook Jiew</p>
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="mt-4 pt-3 border-t border-cookie-200 flex gap-2">
+                <button onclick="printReceipt()" class="flex-1 bg-cookie-100 hover:bg-cookie-200 text-cookie-800 text-xs font-semibold py-2 rounded-xl transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-print"></i> พิมพ์ใบเสร็จ
+                </button>
+                <button onclick="closeReceiptModal()" class="flex-1 bg-cookie-600 hover:bg-cookie-700 text-white text-xs font-semibold py-2 rounded-xl transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-check"></i> ทำรายการต่อไป
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: SHIFT SUMMARY MODAL -->
+    <div id="shift-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl relative">
+            <button onclick="closeShiftSummary()" class="absolute right-3 top-3 text-cookie-400 hover:text-cookie-700 text-lg p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-2 mb-4 text-cookie-800 border-b border-cookie-200 pb-3">
+                <i class="fa-solid fa-chart-pie text-xl text-cookie-500"></i>
+                <h3 class="font-bold text-lg">สรุปยอดขายประจำวัน (Shift Summary)</h3>
+            </div>
+
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-cookie-50 p-3 rounded-2xl border border-pinklogo/60 text-center">
+                        <span class="text-xs text-cookie-500 block mb-0.5">ยอดขายรวมทั้งหมด</span>
+                        <span id="shift-total-sales" class="text-xl font-bold text-cookie-800">0.00 ฿</span>
+                    </div>
+                    <div class="bg-cookie-50 p-3 rounded-2xl border border-pinklogo/60 text-center">
+                        <span class="text-xs text-cookie-500 block mb-0.5">จำนวนออเดอร์</span>
+                        <span id="shift-total-orders" class="text-xl font-bold text-cookie-800">0 รายการ</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-cookie-200 p-3 space-y-2 text-xs">
+                    <span class="font-semibold text-cookie-700 block border-b border-cookie-100 pb-1">แยกตามช่องทางชำระเงิน:</span>
+                    <div class="flex justify-between text-cookie-600">
+                        <span><i class="fa-solid fa-money-bill-wave text-emerald-600 mr-1.5"></i>เงินสด:</span>
+                        <span id="shift-cash-amount" class="font-medium">0.00 ฿</span>
+                    </div>
+                    <div class="flex justify-between text-cookie-600">
+                        <span><i class="fa-solid fa-qrcode text-blue-600 mr-1.5"></i>สแกน QR Code:</span>
+                        <span id="shift-qr-amount" class="font-medium">0.00 ฿</span>
+                    </div>
+                    <div class="flex justify-between text-cookie-600">
+                        <span><i class="fa-solid fa-credit-card text-purple-600 mr-1.5"></i>บัตรเครดิต:</span>
+                        <span id="shift-card-amount" class="font-medium">0.00 ฿</span>
+                    </div>
+                </div>
+
+                <div class="bg-cookie-50 p-3 rounded-2xl border border-pinklogo/60">
+                    <span class="text-xs font-semibold text-cookie-700 block mb-1">เมนูขายดีประจำวัน:</span>
+                    <div id="top-selling-items" class="text-xs text-cookie-600 space-y-1">
+                        <p class="text-cookie-400 italic text-center py-2">ยังไม่มีข้อมูลการขาย</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-5">
+                <button onclick="closeShiftSummary()" class="w-full bg-cookie-700 hover:bg-cookie-800 text-white font-medium py-2 rounded-xl text-sm transition">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="fixed bottom-4 left-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- DATA STATE WITH REAL PRODUCT IMAGES ---
+        const CATEGORIES = [
+            { id: 'all', name: 'ทั้งหมด', icon: 'fa-border-all' },
+            { id: 'cookie', name: 'คุ้กกี้จิ๋ว (Single)', icon: 'fa-cookie' },
+            { id: 'box', name: 'ชุดของขวัญ (Gift Set)', icon: 'fa-box-open' },
+            { id: 'drink', name: 'เครื่องดื่ม (Drinks)', icon: 'fa-mug-hot' }
+        ];
+
+        const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=80';
+
+        // DYNAMIC PRODUCT LIST - ALL UPDATED WITH HIGH QUALITY COOKIES & BAKERY IMAGES ONLY
+        let PRODUCTS = [
+            { 
+                id: 'p1', 
+                name: 'Dark Choco Chip Cookie', 
+                category: 'cookie', 
+                price: 15, 
+                stock: 45, 
+                badge: 'BEST SELLER',
+                badgeColor: 'bg-rose-500 text-white',
+                image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p2', 
+                name: 'Matcha Green Tea Cookie', 
+                category: 'cookie', 
+                price: 18, 
+                stock: 30, 
+                badge: 'HOT',
+                badgeColor: 'bg-emerald-600 text-white',
+                image: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p3', 
+                name: 'Red Velvet Cream Cheese', 
+                category: 'cookie', 
+                price: 20, 
+                stock: 20, 
+                badge: 'NEW',
+                badgeColor: 'bg-amber-500 text-white',
+                image: 'https://images.unsplash.com/photo-1618923850107-d1a234d7a73a?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p4', 
+                name: 'Macadamia White Choco', 
+                category: 'cookie', 
+                price: 22, 
+                stock: 15, 
+                badge: 'SPECIAL',
+                badgeColor: 'bg-yellow-600 text-white',
+                image: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p5', 
+                name: 'Milk Butter Classic Cookie', 
+                category: 'cookie', 
+                price: 15, 
+                stock: 50, 
+                badge: '',
+                image: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p6', 
+                name: 'Strawberry Cheesecake Jiew', 
+                category: 'cookie', 
+                price: 20, 
+                stock: 18, 
+                badge: 'RECOMMEND',
+                badgeColor: 'bg-pink-500 text-white',
+                image: 'https://images.unsplash.com/photo-1519869325930-281384150729?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p7', 
+                name: 'Jiew Box (10 Mini Cookies)', 
+                category: 'box', 
+                price: 135, 
+                stock: 12, 
+                badge: 'POPULAR',
+                badgeColor: 'bg-cookie-700 text-butter',
+                image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p8', 
+                name: 'Jiew Party Set (30 Mini + Dips)', 
+                category: 'box', 
+                price: 360, 
+                stock: 8, 
+                badge: 'VALUE',
+                badgeColor: 'bg-purple-600 text-white',
+                image: 'https://images.unsplash.com/photo-1535141192574-5d4897c13136?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p9', 
+                name: 'Iced Fresh Milk Latte', 
+                category: 'drink', 
+                price: 55, 
+                stock: 35, 
+                badge: '',
+                image: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=500&auto=format&fit=crop&q=80' 
+            },
+            { 
+                id: 'p10', 
+                name: 'Rich Iced Chocolate', 
+                category: 'drink', 
+                price: 50, 
+                stock: 40, 
+                badge: '',
+                image: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&auto=format&fit=crop&q=80' 
+            }
+        ];
+
+        // MOCK MEMBERS
+        const MEMBERS_DB = {
+            '0812345678': { name: 'คุณสมชาย (ลูกค้า VIP)', phone: '0812345678', points: 150 },
+            '0909998888': { name: 'คุณก้อย (Regular)', phone: '0909998888', points: 42 },
+        };
+
+        // COUPONS
+        const COUPONS = {
+            'JIEW10': { type: 'percent', value: 10 },
+            'DISCOUNT20': { type: 'fixed', value: 20 }
+        };
+
+        // APP STATE
+        let activeCategory = 'all';
+        let searchQuery = '';
+        let cart = [];
+        let currentMember = null;
+        let appliedCoupon = null;
+        let paymentMethod = 'cash';
+        let cashReceived = 0;
+        let soundEnabled = true;
+
+        // SHIFT SALES DATA
+        let shiftData = {
+            totalSales: 0,
+            orderCount: 0,
+            cash: 0,
+            qr: 0,
+            card: 0,
+            itemSalesHistory: {}
+        };
+
+        // --- SOUND EFFECTS (Web Audio API) ---
+        function playBeepSound() {
+            if (!soundEnabled) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch (e) {}
+        }
+
+        function playSuccessSound() {
+            if (!soundEnabled) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+                osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch (e) {}
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('sound-toggle-btn');
+            if (soundEnabled) {
+                btn.innerHTML = `<i class="fa-solid fa-volume-high text-butter"></i>`;
+                showToast("เปิดเสียงตอบสนองแล้ว", "info");
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-volume-xmark text-cookie-400"></i>`;
+                showToast("ปิดเสียงตอบสนองแล้ว", "info");
+            }
+        }
+
+        // --- INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            renderCategories();
+            renderProducts();
+            renderCart();
+
+            // Preview image dynamic binding
+            document.getElementById('pm-image').addEventListener('input', (e) => {
+                const preview = document.getElementById('pm-image-preview');
+                preview.src = e.target.value || FALLBACK_IMAGE;
+            });
+        });
+
+        // --- RENDER CATEGORIES ---
+        function renderCategories() {
+            const container = document.getElementById('category-container');
+            container.innerHTML = CATEGORIES.map(cat => `
+                <button onclick="selectCategory('${cat.id}')" 
+                    class="px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5 whitespace-nowrap border ${
+                        activeCategory === cat.id 
+                            ? 'bg-cookie-700 text-white border-cookie-700 shadow-xs' 
+                            : 'bg-white text-cookie-700 border-pinklogo/60 hover:bg-cookie-100'
+                    }">
+                    <i class="fa-solid ${cat.icon}"></i>
+                    <span>${cat.name}</span>
+                </button>
+            `).join('');
+        }
+
+        function selectCategory(catId) {
+            playBeepSound();
+            activeCategory = catId;
+            renderCategories();
+            renderProducts();
+        }
+
+        // --- RENDER PRODUCTS ---
+        function renderProducts() {
+            const grid = document.getElementById('product-grid');
+            const emptyState = document.getElementById('empty-state');
+
+            const filtered = PRODUCTS.filter(prod => {
+                const matchesCategory = activeCategory === 'all' || prod.category === activeCategory;
+                const matchesSearch = prod.name.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesCategory && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            emptyState.classList.remove('flex');
+
+            grid.innerHTML = filtered.map(prod => {
+                const isOutOfStock = prod.stock <= 0;
+                return `
+                    <div class="bg-white rounded-2xl border border-pinklogo/60 shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col justify-between p-2.5 relative group">
+                        
+                        <!-- Top Image Banner & Badges -->
+                        <div class="relative w-full h-28 sm:h-32 rounded-xl overflow-hidden bg-cookie-100 mb-2">
+                            <img src="${prod.image || FALLBACK_IMAGE}" 
+                                 alt="${prod.name}" 
+                                 onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';"
+                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            
+                            <!-- Custom Product Badge -->
+                            ${prod.badge ? `
+                                <span class="absolute top-2 left-2 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs uppercase ${prod.badgeColor || 'bg-cookie-600 text-white'}">
+                                    ${prod.badge}
+                                </span>
+                            ` : ''}
+
+                            <!-- Edit Quick Button on Card -->
+                            <button onclick="editProductDirect('${prod.id}')" title="แก้ไขสินค้านี้"
+                                class="absolute top-2 right-2 bg-white/90 hover:bg-white text-cookie-800 w-6 h-6 rounded-full flex items-center justify-center text-[10px] shadow-xs transition backdrop-blur-xs opacity-80 hover:opacity-100">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+
+                            <!-- Stock Status Badge -->
+                            <span class="absolute bottom-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full font-semibold shadow-xs backdrop-blur-xs ${
+                                isOutOfStock 
+                                    ? 'bg-red-500/90 text-white' 
+                                    : prod.stock <= 10 
+                                        ? 'bg-amber-500/90 text-white' 
+                                        : 'bg-black/60 text-white'
+                            }">
+                                ${isOutOfStock ? 'หมด' : `เหลือ ${prod.stock}`}
+                            </span>
+                        </div>
+
+                        <!-- Product Info -->
+                        <div class="mb-2">
+                            <h4 class="font-semibold text-xs text-cookie-900 line-clamp-1">${prod.name}</h4>
+                            <p class="font-bold text-cookie-600 text-sm mt-0.5">${prod.price} ฿</p>
+                        </div>
+
+                        <!-- Add Button -->
+                        <button onclick="addToCart('${prod.id}')" ${isOutOfStock ? 'disabled' : ''}
+                            class="w-full bg-cookie-100 hover:bg-cookie-600 hover:text-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed text-cookie-800 font-medium text-xs py-1.5 rounded-xl transition border border-pinklogo/60 flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-cart-plus text-[10px]"></i>
+                            <span>${isOutOfStock ? 'สินค้าหมด' : 'ใส่ตะกร้า'}</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- SEARCH HANDLER ---
+        function handleSearch() {
+            const input = document.getElementById('search-input');
+            const clearBtn = document.getElementById('clear-search');
+            searchQuery = input.value.trim();
+            
+            if (searchQuery.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            renderProducts();
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('search-input');
+            input.value = '';
+            searchQuery = '';
+            document.getElementById('clear-search').classList.add('hidden');
+            renderProducts();
+        }
+
+        // --- PRODUCT MANAGEMENT (EDIT/ADD/DELETE) ---
+        function openProductManagerModal() {
+            playBeepSound();
+            renderProductManagerList();
+            resetProductForm();
+            document.getElementById('product-manager-modal').classList.remove('hidden');
+        }
+
+        function closeProductManagerModal() {
+            playBeepSound();
+            document.getElementById('product-manager-modal').classList.add('hidden');
+        }
+
+        function renderProductManagerList() {
+            const container = document.getElementById('pm-product-list');
+            document.getElementById('pm-total-count').textContent = PRODUCTS.length;
+
+            container.innerHTML = PRODUCTS.map(prod => `
+                <div class="bg-white p-2 rounded-xl border border-cookie-200 flex items-center justify-between gap-2 shadow-2xs hover:border-pinklogo transition">
+                    <img src="${prod.image || FALLBACK_IMAGE}" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';" class="w-10 h-10 object-cover rounded-lg border border-cookie-100 shrink-0">
+                    
+                    <div class="flex-1 min-w-0 text-xs">
+                        <div class="flex items-center gap-1.5">
+                            <h5 class="font-bold text-cookie-900 truncate">${prod.name}</h5>
+                            ${prod.badge ? `<span class="bg-cookie-100 text-cookie-700 text-[9px] px-1.5 py-0.2 rounded font-semibold">${prod.badge}</span>` : ''}
+                        </div>
+                        <p class="text-cookie-500 text-[11px]">
+                            ราคา: <strong class="text-cookie-700">${prod.price} ฿</strong> | สต็อก: <strong class="${prod.stock <= 5 ? 'text-red-500' : 'text-cookie-700'}">${prod.stock}</strong>
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-1">
+                        <button onclick="populateEditForm('${prod.id}')" class="bg-cookie-100 hover:bg-cookie-200 text-cookie-800 text-xs px-2 py-1 rounded-lg font-medium transition" title="แก้ไข">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button onclick="deleteProduct('${prod.id}')" class="bg-red-50 hover:bg-red-100 text-red-600 text-xs px-2 py-1 rounded-lg font-medium transition" title="ลบสินค้า">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function populateEditForm(id) {
+            playBeepSound();
+            const prod = PRODUCTS.find(p => p.id === id);
+            if (!prod) return;
+
+            document.getElementById('pm-form-title').innerHTML = `<i class="fa-solid fa-pen"></i> แก้ไขสินค้า: ${prod.name}`;
+            document.getElementById('pm-id').value = prod.id;
+            document.getElementById('pm-name').value = prod.name;
+            document.getElementById('pm-price').value = prod.price;
+            document.getElementById('pm-stock').value = prod.stock;
+            document.getElementById('pm-category').value = prod.category;
+            document.getElementById('pm-badge').value = prod.badge || '';
+            document.getElementById('pm-image').value = prod.image || '';
+            document.getElementById('pm-image-preview').src = prod.image || FALLBACK_IMAGE;
+        }
+
+        function editProductDirect(id) {
+            openProductManagerModal();
+            populateEditForm(id);
+        }
+
+        function resetProductForm() {
+            document.getElementById('pm-form-title').innerHTML = `<i class="fa-solid fa-plus"></i> เพิ่มเมนูคุ้กกี้ใหม่`;
+            document.getElementById('product-edit-form').reset();
+            document.getElementById('pm-id').value = '';
+            document.getElementById('pm-image-preview').src = FALLBACK_IMAGE;
+        }
+
+        function saveProductForm(event) {
+            event.preventDefault();
+            playBeepSound();
+
+            const id = document.getElementById('pm-id').value;
+            const name = document.getElementById('pm-name').value.trim();
+            const price = parseFloat(document.getElementById('pm-price').value) || 0;
+            const stock = parseInt(document.getElementById('pm-stock').value) || 0;
+            const category = document.getElementById('pm-category').value;
+            const badge = document.getElementById('pm-badge').value.trim();
+            const image = document.getElementById('pm-image').value.trim() || FALLBACK_IMAGE;
+
+            if (id) {
+                // Update Existing Product
+                const prod = PRODUCTS.find(p => p.id === id);
+                if (prod) {
+                    prod.name = name;
+                    prod.price = price;
+                    prod.stock = stock;
+                    prod.category = category;
+                    prod.badge = badge;
+                    prod.image = image;
+                    showToast(`อัปเดตเมนู "${name}" เรียบร้อยแล้ว`, 'success');
+                }
+            } else {
+                // Add New Product
+                const newId = 'p' + (Date.now());
+                PRODUCTS.push({
+                    id: newId,
+                    name: name,
+                    price: price,
+                    stock: stock,
+                    category: category,
+                    badge: badge,
+                    badgeColor: 'bg-cookie-600 text-white',
+                    image: image
+                });
+                showToast(`เพิ่มสินค้าใหม่ "${name}" สำเร็จ!`, 'success');
+            }
+
+            // Sync Cart Item Prices/Names if changed
+            cart.forEach(item => {
+                const match = PRODUCTS.find(p => p.id === item.product.id);
+                if (match) item.product = match;
+            });
+
+            renderProductManagerList();
+            renderProducts();
+            renderCart();
+            resetProductForm();
+        }
+
+        function deleteProduct(id) {
+            playBeepSound();
+            const prod = PRODUCTS.find(p => p.id === id);
+            if (!prod) return;
+
+            if (confirm(`คุณต้องการลบเมนู "${prod.name}" ออกจากระบบใช่หรือไม่?`)) {
+                PRODUCTS = PRODUCTS.filter(p => p.id !== id);
+                cart = cart.filter(i => i.product.id !== id);
+                showToast(`ลบสินค้าเรียบร้อยแล้ว`, 'info');
+                renderProductManagerList();
+                renderProducts();
+                renderCart();
+            }
+        }
+
+        // --- CART OPERATIONS ---
+        function addToCart(productId) {
+            playBeepSound();
+            const product = PRODUCTS.find(p => p.id === productId);
+            if (!product || product.stock <= 0) return;
+
+            const existing = cart.find(item => item.product.id === productId);
+            if (existing) {
+                if (existing.quantity + 1 > product.stock) {
+                    showToast(`สินค้า ${product.name} มีในสต็อกเพียง ${product.stock} ชิ้น`, 'warning');
+                    return;
+                }
+                existing.quantity++;
+            } else {
+                cart.push({ product, quantity: 1 });
+            }
+
+            renderCart();
+            showToast(`เพิ่ม ${product.name} แล้ว`, 'success');
+        }
+
+        function updateQuantity(productId, delta) {
+            playBeepSound();
+            const item = cart.find(i => i.product.id === productId);
+            if (!item) return;
+
+            const newQty = item.quantity + delta;
+            if (newQty > item.product.stock) {
+                showToast(`สต็อกสูงสุดคือ ${item.product.stock} ชิ้น`, 'warning');
+                return;
+            }
+
+            if (newQty <= 0) {
+                removeFromCart(productId);
+            } else {
+                item.quantity = newQty;
+                renderCart();
+            }
+        }
+
+        function removeFromCart(productId) {
+            playBeepSound();
+            cart = cart.filter(i => i.product.id !== productId);
+            renderCart();
+        }
+
+        function clearCart() {
+            if (cart.length === 0) return;
+            playBeepSound();
+            cart = [];
+            appliedCoupon = null;
+            document.getElementById('coupon-code').value = '';
+            renderCart();
+            showToast("ล้างรายการในตะกร้าแล้ว", "info");
+        }
+
+        // --- RENDER CART & SUMMARY ---
+        function renderCart() {
+            const list = document.getElementById('cart-items-list');
+            const emptyView = document.getElementById('cart-empty-view');
+            const itemCount = document.getElementById('cart-item-count');
+
+            const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+            itemCount.textContent = totalItemsCount;
+
+            if (cart.length === 0) {
+                list.innerHTML = '';
+                emptyView.classList.remove('hidden');
+                emptyView.classList.add('flex');
+            } else {
+                emptyView.classList.add('hidden');
+                emptyView.classList.remove('flex');
+
+                list.innerHTML = cart.map(item => `
+                    <div class="py-2 flex items-center justify-between gap-2">
+                        <img src="${item.product.image || FALLBACK_IMAGE}" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';" class="w-10 h-10 object-cover rounded-xl border border-cookie-200">
+                        <div class="flex-1 min-w-0">
+                            <h5 class="text-xs font-semibold text-cookie-900 truncate">${item.product.name}</h5>
+                            <p class="text-[11px] text-cookie-500">${item.product.price} ฿ / ชิ้น</p>
+                        </div>
+                        <div class="flex items-center gap-1 bg-cookie-50 p-0.5 rounded-xl border border-pinklogo/60">
+                            <button onclick="updateQuantity('${item.product.id}', -1)" class="w-6 h-6 rounded-lg bg-white text-cookie-800 hover:bg-cookie-200 text-xs font-bold transition flex items-center justify-center">
+                                -
+                            </button>
+                            <span class="w-5 text-center text-xs font-bold text-cookie-800">${item.quantity}</span>
+                            <button onclick="updateQuantity('${item.product.id}', 1)" class="w-6 h-6 rounded-lg bg-white text-cookie-800 hover:bg-cookie-200 text-xs font-bold transition flex items-center justify-center">
+                                +
+                            </button>
+                        </div>
+                        <div class="text-right min-w-[50px]">
+                            <span class="text-xs font-bold text-cookie-800">${(item.product.price * item.quantity).toFixed(0)} ฿</span>
+                        </div>
+                        <button onclick="removeFromCart('${item.product.id}')" class="text-cookie-300 hover:text-red-500 p-1 text-xs transition">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            renderCartSummary();
+        }
+
+        function calculateTotals() {
+            const subtotal = cart.reduce((sum, i) => sum + (i.product.price * i.quantity), 0);
+            let discount = 0;
+
+            if (appliedCoupon) {
+                if (appliedCoupon.type === 'percent') {
+                    discount = (subtotal * appliedCoupon.value) / 100;
+                } else if (appliedCoupon.type === 'fixed') {
+                    discount = appliedCoupon.value;
+                }
+            }
+
+            const afterDiscount = Math.max(0, subtotal - discount);
+            const isVatChecked = document.getElementById('vat-toggle').checked;
+            const vat = isVatChecked ? afterDiscount * 0.07 : 0;
+            const grandTotal = afterDiscount + vat;
+
+            return { subtotal, discount, vat, grandTotal };
+        }
+
+        function renderCartSummary() {
+            const { subtotal, discount, vat, grandTotal } = calculateTotals();
+
+            document.getElementById('summary-subtotal').textContent = `${subtotal.toFixed(2)} ฿`;
+            
+            const discountRow = document.getElementById('discount-row');
+            if (discount > 0) {
+                discountRow.classList.remove('hidden');
+                document.getElementById('summary-discount').textContent = `-${discount.toFixed(2)} ฿`;
+            } else {
+                discountRow.classList.add('hidden');
+            }
+
+            document.getElementById('summary-vat').textContent = `${vat.toFixed(2)} ฿`;
+            document.getElementById('summary-grand-total').textContent = `${grandTotal.toFixed(2)} ฿`;
+
+            const checkoutBtn = document.getElementById('checkout-btn');
+            checkoutBtn.disabled = cart.length === 0;
+
+            calculateChange();
+        }
+
+        // --- COUPONS ---
+        function applyCoupon() {
+            playBeepSound();
+            const input = document.getElementById('coupon-code');
+            const code = input.value.trim().toUpperCase();
+
+            if (!code) {
+                appliedCoupon = null;
+                renderCartSummary();
+                return;
+            }
+
+            if (COUPONS[code]) {
+                appliedCoupon = COUPONS[code];
+                showToast(`ใช้โค้ด ${code} สำเร็จ!`, 'success');
+                renderCartSummary();
+            } else {
+                showToast("ไม่พบโค้ดส่วนลดนี้", "error");
+            }
+        }
+
+        // --- PAYMENT METHOD & CASH CALCULATOR ---
+        function selectPaymentMethod(method) {
+            playBeepSound();
+            paymentMethod = method;
+            
+            const cashBtn = document.getElementById('btn-pay-cash');
+            const qrBtn = document.getElementById('btn-pay-qr');
+            const cardBtn = document.getElementById('btn-pay-card');
+            const cashSection = document.getElementById('cash-calculator-section');
+
+            [cashBtn, qrBtn, cardBtn].forEach(b => b.classList.remove('border-cookie-500', 'bg-cookie-100', 'ring-2', 'ring-cookie-400'));
+
+            if (method === 'cash') {
+                cashBtn.classList.add('border-cookie-500', 'bg-cookie-100', 'ring-2', 'ring-cookie-400');
+                cashSection.classList.remove('hidden');
+            } else if (method === 'qr') {
+                qrBtn.classList.add('border-cookie-500', 'bg-cookie-100', 'ring-2', 'ring-cookie-400');
+                cashSection.classList.add('hidden');
+            } else if (method === 'card') {
+                cardBtn.classList.add('border-cookie-500', 'bg-cookie-100', 'ring-2', 'ring-cookie-400');
+                cashSection.classList.add('hidden');
+            }
+        }
+
+        function setExactCash() {
+            playBeepSound();
+            const { grandTotal } = calculateTotals();
+            document.getElementById('cash-received-input').value = grandTotal.toFixed(2);
+            calculateChange();
+        }
+
+        function addCash(amount) {
+            playBeepSound();
+            const input = document.getElementById('cash-received-input');
+            const current = parseFloat(input.value) || 0;
+            input.value = (current + amount).toFixed(2);
+            calculateChange();
+        }
+
+        function calculateChange() {
+            const { grandTotal } = calculateTotals();
+            const inputVal = parseFloat(document.getElementById('cash-received-input').value) || 0;
+            cashReceived = inputVal;
+            const changeDisplay = document.getElementById('cash-change-display');
+
+            if (paymentMethod === 'cash') {
+                const change = cashReceived - grandTotal;
+                if (change >= 0) {
+                    changeDisplay.textContent = `${change.toFixed(2)} ฿`;
+                    changeDisplay.className = "font-bold text-emerald-600";
+                } else {
+                    changeDisplay.textContent = `ขาดอีก ${Math.abs(change).toFixed(2)} ฿`;
+                    changeDisplay.className = "font-bold text-red-500";
+                }
+            }
+        }
+
+        // --- MEMBER MANAGEMENT ---
+        function searchMember() {
+            playBeepSound();
+            const input = document.getElementById('member-phone');
+            const phone = input.value.trim();
+
+            if (!phone) {
+                showToast("กรุณากรอกเบอร์โทรศัพท์", "warning");
+                return;
+            }
+
+            if (MEMBERS_DB[phone]) {
+                currentMember = MEMBERS_DB[phone];
+                document.getElementById('member-name').textContent = currentMember.name;
+                document.getElementById('member-points').textContent = currentMember.points;
+                document.getElementById('active-member-info').classList.remove('hidden');
+                document.getElementById('member-status-badge').textContent = "สมาชิก Jiew Club";
+                document.getElementById('member-status-badge').className = "text-[10px] bg-pinklogo text-cookie-800 px-2 py-0.5 rounded-full font-bold";
+                showToast(`พบบัญชีสมาชิก: ${currentMember.name}`, "success");
+            } else {
+                currentMember = { name: `สมาชิกใหม่ (${phone})`, phone: phone, points: 0 };
+                MEMBERS_DB[phone] = currentMember;
+                document.getElementById('member-name').textContent = currentMember.name;
+                document.getElementById('member-points').textContent = currentMember.points;
+                document.getElementById('active-member-info').classList.remove('hidden');
+                showToast("ลงทะเบียนสมาชิกใหม่เรียบร้อย", "info");
+            }
+        }
+
+        function clearMember() {
+            playBeepSound();
+            currentMember = null;
+            document.getElementById('member-phone').value = '';
+            document.getElementById('active-member-info').classList.add('hidden');
+            document.getElementById('member-status-badge').textContent = "ค้นหาเบอร์โทร";
+            document.getElementById('member-status-badge').className = "text-[10px] bg-white text-cookie-700 border border-cookie-200 px-2 py-0.5 rounded-full font-medium";
+        }
+
+        // --- CHECKOUT & RECEIPT ---
+        function processCheckout() {
+            if (cart.length === 0) return;
+
+            const { grandTotal, subtotal, discount, vat } = calculateTotals();
+
+            if (paymentMethod === 'cash' && cashReceived < grandTotal) {
+                showToast("จำนวนเงินสดที่รับมาไม่เพียงพอ", "error");
+                return;
+            }
+
+            playSuccessSound();
+
+            // Earned Points (1 point per 20 THB)
+            const earnedPoints = Math.floor(grandTotal / 20);
+            if (currentMember) {
+                currentMember.points += earnedPoints;
+            }
+
+            // Deduct Stock
+            cart.forEach(item => {
+                const prod = PRODUCTS.find(p => p.id === item.product.id);
+                if (prod) {
+                    prod.stock -= item.quantity;
+                }
+
+                if (!shiftData.itemSalesHistory[item.product.id]) {
+                    shiftData.itemSalesHistory[item.product.id] = { name: item.product.name, qty: 0 };
+                }
+                shiftData.itemSalesHistory[item.product.id].qty += item.quantity;
+            });
+
+            shiftData.totalSales += grandTotal;
+            shiftData.orderCount += 1;
+            if (paymentMethod === 'cash') shiftData.cash += grandTotal;
+            if (paymentMethod === 'qr') shiftData.qr += grandTotal;
+            if (paymentMethod === 'card') shiftData.card += grandTotal;
+
+            document.getElementById('header-today-sales').textContent = `${shiftData.totalSales.toFixed(2)} ฿`;
+
+            const orderId = `#CJ-${1000 + shiftData.orderCount}`;
+            const now = new Date();
+            const dateStr = `${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+            document.getElementById('receipt-order-id').textContent = orderId;
+            document.getElementById('receipt-datetime').textContent = dateStr;
+
+            const tbody = document.getElementById('receipt-items-tbody');
+            tbody.innerHTML = cart.map(i => `
+                <tr>
+                    <td class="py-1 text-cookie-800">${i.product.name}</td>
+                    <td class="py-1 text-center">${i.quantity}</td>
+                    <td class="py-1 text-right font-medium">${(i.product.price * i.quantity).toFixed(2)}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('receipt-subtotal').textContent = `${subtotal.toFixed(2)} ฿`;
+            
+            const recDiscountRow = document.getElementById('receipt-discount-row');
+            if (discount > 0) {
+                recDiscountRow.classList.remove('hidden');
+                document.getElementById('receipt-discount').textContent = `-${discount.toFixed(2)} ฿`;
+            } else {
+                recDiscountRow.classList.add('hidden');
+            }
+
+            const recVatRow = document.getElementById('receipt-vat-row');
+            if (vat > 0) {
+                recVatRow.classList.remove('hidden');
+                document.getElementById('receipt-vat').textContent = `${vat.toFixed(2)} ฿`;
+            } else {
+                recVatRow.classList.add('hidden');
+            }
+
+            document.getElementById('receipt-grand-total').textContent = `${grandTotal.toFixed(2)} ฿`;
+
+            const methodNames = { cash: 'เงินสด', qr: 'สแกน QR Code', card: 'บัตรเครดิต' };
+            document.getElementById('receipt-pay-method').textContent = methodNames[paymentMethod];
+
+            const cashDetailsRow = document.getElementById('receipt-cash-details');
+            if (paymentMethod === 'cash') {
+                cashDetailsRow.classList.remove('hidden');
+                document.getElementById('receipt-cash-received').textContent = `${cashReceived.toFixed(2)} ฿`;
+                document.getElementById('receipt-cash-change').textContent = `${(cashReceived - grandTotal).toFixed(2)} ฿`;
+            } else {
+                cashDetailsRow.classList.add('hidden');
+            }
+
+            const memberRow = document.getElementById('receipt-member-row');
+            const pointsBox = document.getElementById('receipt-points-box');
+            if (currentMember) {
+                memberRow.classList.remove('hidden');
+                document.getElementById('receipt-member-phone').textContent = currentMember.phone;
+                pointsBox.classList.remove('hidden');
+                document.getElementById('receipt-earned-points').textContent = earnedPoints;
+            } else {
+                memberRow.classList.add('hidden');
+                pointsBox.classList.add('hidden');
+            }
+
+            document.getElementById('receipt-modal').classList.remove('hidden');
+
+            cart = [];
+            appliedCoupon = null;
+            cashReceived = 0;
+            document.getElementById('cash-received-input').value = '';
+            document.getElementById('coupon-code').value = '';
+            clearMember();
+            renderProducts();
+            renderCart();
+        }
+
+        function closeReceiptModal() {
+            playBeepSound();
+            document.getElementById('receipt-modal').classList.add('hidden');
+        }
+
+        function printReceipt() {
+            window.print();
+        }
+
+        // --- SHIFT SUMMARY MODAL ---
+        function openShiftSummary() {
+            playBeepSound();
+            document.getElementById('shift-total-sales').textContent = `${shiftData.totalSales.toFixed(2)} ฿`;
+            document.getElementById('shift-total-orders').textContent = `${shiftData.orderCount} รายการ`;
+            document.getElementById('shift-cash-amount').textContent = `${shiftData.cash.toFixed(2)} ฿`;
+            document.getElementById('shift-qr-amount').textContent = `${shiftData.qr.toFixed(2)} ฿`;
+            document.getElementById('shift-card-amount').textContent = `${shiftData.card.toFixed(2)} ฿`;
+
+            const topListContainer = document.getElementById('top-selling-items');
+            const items = Object.values(shiftData.itemSalesHistory).sort((a,b) => b.qty - a.qty);
+
+            if (items.length === 0) {
+                topListContainer.innerHTML = `<p class="text-cookie-400 italic text-center py-2">ยังไม่มีข้อมูลการขาย</p>`;
+            } else {
+                topListContainer.innerHTML = items.map(item => `
+                    <div class="flex justify-between border-b border-cookie-100 pb-1">
+                        <span>${item.name}</span>
+                        <span class="font-bold text-cookie-800">${item.qty} ชิ้น</span>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('shift-modal').classList.remove('hidden');
+        }
+
+        function closeShiftSummary() {
+            playBeepSound();
+            document.getElementById('shift-modal').classList.add('hidden');
+        }
+
+        // --- TOAST NOTIFICATION SYSTEM ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const typeStyles = {
+                success: 'bg-cookie-700 text-white border-pinklogo',
+                error: 'bg-red-800 text-white border-red-600',
+                warning: 'bg-amber-800 text-white border-amber-600',
+                info: 'bg-cookie-800 text-white border-cookie-600'
+            };
+
+            const icons = {
+                success: 'fa-circle-check text-pinklogo',
+                error: 'fa-circle-xmark text-red-400',
+                warning: 'fa-triangle-exclamation text-amber-400',
+                info: 'fa-circle-info text-butter'
+            };
+
+            toast.className = `px-3 py-2 rounded-xl border shadow-lg text-xs font-medium flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto ${typeStyles[type]}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type]} text-sm"></i> <span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
